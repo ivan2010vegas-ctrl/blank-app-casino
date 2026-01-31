@@ -1,10 +1,11 @@
 import streamlit as st
 import random
 import time
+import math
 
-# ---------------- PAGE CONFIG ----------------
+# ---------------- CONFIG ----------------
 st.set_page_config(
-    page_title="🚀 Rocket Crash",
+    page_title="🚀 Rocket Crash Casino",
     page_icon="🚀",
     layout="centered"
 )
@@ -13,42 +14,52 @@ st.set_page_config(
 st.markdown("""
 <style>
 body {
-    background: radial-gradient(circle at bottom, #020024 0%, #090979 40%, #000000 100%);
+    background: radial-gradient(circle at bottom, #050014 0%, #090979 40%, #000000 100%);
+}
+.game-box {
+    background: rgba(0,0,0,0.55);
+    padding: 20px;
+    border-radius: 20px;
+    box-shadow: 0 0 30px rgba(0,255,255,0.15);
 }
 .rocket {
-    font-size: 60px;
-    animation: fly 1s infinite alternate;
+    font-size: 70px;
+    animation: fly 0.6s infinite alternate;
 }
 @keyframes fly {
-    from { transform: translateY(10px); }
-    to { transform: translateY(-10px); }
+    from { transform: translateY(8px); }
+    to { transform: translateY(-8px); }
 }
 .mult {
-    font-size: 48px;
-    font-weight: bold;
-    color: #00ffcc;
+    font-size: 56px;
+    font-weight: 800;
+    color: #00ffd5;
 }
 .profit {
-    font-size: 24px;
-    color: #00ff00;
+    font-size: 26px;
+    color: #00ff7f;
 }
-.history {
-    font-size: 18px;
+.history span {
+    padding: 4px 8px;
+    border-radius: 8px;
+    margin-right: 6px;
+    font-weight: bold;
 }
-.card {
-    background-color: rgba(0,0,0,0.4);
-    padding: 15px;
-    border-radius: 15px;
+.low { background: #2b2b2b; color: #aaa; }
+.mid { background: #1f4fff; color: white; }
+.high { background: #ff2d55; color: white; }
+.balance {
+    font-size: 20px;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------- SESSION STATE ----------------
+# ---------------- STATE ----------------
 if "balance" not in st.session_state:
-    st.session_state.balance = 5000
+    st.session_state.balance = 10_000
 
-if "active" not in st.session_state:
-    st.session_state.active = False
+if "in_game" not in st.session_state:
+    st.session_state.in_game = False
 
 if "bet" not in st.session_state:
     st.session_state.bet = 0
@@ -64,19 +75,21 @@ if "history" not in st.session_state:
 
 # ---------------- TITLE ----------------
 st.markdown("<h1 style='text-align:center;'>🚀 ROCKET CRASH</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align:center;'>Жадность убивает</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align:center; opacity:0.7;'>Virtual Casino Mode</p>", unsafe_allow_html=True)
 
 # ---------------- BALANCE ----------------
 st.markdown(f"""
-<div class="card">
-💰 <b>Баланс:</b> {st.session_state.balance} $
+<div class="game-box balance">
+💰 Баланс: <b>{st.session_state.balance}$</b>
 </div>
 """, unsafe_allow_html=True)
 
 st.write("")
 
-# ---------------- BET INPUT ----------------
-if not st.session_state.active:
+# ---------------- BET PANEL ----------------
+if not st.session_state.in_game:
+    st.markdown("<div class='game-box'>", unsafe_allow_html=True)
+
     bet = st.number_input(
         "💸 Ставка",
         min_value=10,
@@ -84,71 +97,88 @@ if not st.session_state.active:
         step=10
     )
 
-    if st.button("🚀 Запуск"):
+    if st.button("🚀 СТАРТ"):
         st.session_state.bet = bet
         st.session_state.balance -= bet
         st.session_state.mult = 1.00
-        st.session_state.crash_at = round(random.uniform(1.00, 100.00), 2)
-        st.session_state.active = True
+
+        # 🔥 ЧЕСТНЫЙ КАЗИНО-РАСПРЕДЕЛЕНИЕ
+        r = random.random()
+        st.session_state.crash_at = round(
+            min(100.0, max(1.0, 1 / (1 - r))), 2
+        )
+
+        st.session_state.in_game = True
         st.rerun()
 
+    st.markdown("</div>", unsafe_allow_html=True)
+
 # ---------------- GAME LOOP ----------------
-if st.session_state.active:
+if st.session_state.in_game:
     profit = int(st.session_state.bet * st.session_state.mult)
 
-    col1, col2 = st.columns(2)
+    st.markdown("<div class='game-box'>", unsafe_allow_html=True)
+
+    col1, col2 = st.columns([1,2])
     with col1:
-        st.markdown(f"<div class='rocket'>🚀</div>", unsafe_allow_html=True)
+        st.markdown("<div class='rocket'>🚀</div>", unsafe_allow_html=True)
     with col2:
         st.markdown(f"<div class='mult'>x{st.session_state.mult:.2f}</div>", unsafe_allow_html=True)
-        st.markdown(f"<div class='profit'>Прибыль: {profit} $</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='profit'>Профит: {profit}$</div>", unsafe_allow_html=True)
 
-    cashout = st.button("🟢 Забрать")
+    cashout = st.button("🟢 ЗАБРАТЬ")
 
     if cashout:
         win = int(st.session_state.bet * st.session_state.mult)
         st.session_state.balance += win
         st.session_state.history.insert(0, round(st.session_state.mult, 2))
-        st.session_state.history = st.session_state.history[:10]
-        st.session_state.active = False
-        st.success(f"✅ Вы забрали {win} $")
+        st.session_state.history = st.session_state.history[:12]
+        st.session_state.in_game = False
+        st.success(f"✅ Вы выиграли {win}$")
         st.rerun()
 
-    # рост множителя
-    st.session_state.mult += random.uniform(0.03, 0.15)
-    st.session_state.mult = min(st.session_state.mult, 100.00)
+    # 🚀 РОСТ МНОЖИТЕЛЯ (как в казино)
+    st.session_state.mult *= 1.035
+    st.session_state.mult = round(st.session_state.mult, 2)
 
     time.sleep(0.25)
 
-    # взрыв
     if st.session_state.mult >= st.session_state.crash_at:
-        st.session_state.history.insert(0, round(st.session_state.crash_at, 2))
-        st.session_state.history = st.session_state.history[:10]
-        st.session_state.active = False
+        st.session_state.history.insert(0, st.session_state.crash_at)
+        st.session_state.history = st.session_state.history[:12]
+        st.session_state.in_game = False
         st.error(f"💥 ВЗРЫВ НА x{st.session_state.crash_at:.2f}")
         st.rerun()
 
+    st.markdown("</div>", unsafe_allow_html=True)
     st.rerun()
 
 # ---------------- HISTORY ----------------
 st.write("")
-st.markdown("<div class='card'><b>📜 История иксов</b></div>", unsafe_allow_html=True)
+st.markdown("<div class='game-box'><b>📜 История раундов</b><br><br>", unsafe_allow_html=True)
 
 if st.session_state.history:
-    st.markdown(
-        "<div class='history'>" +
-        ", ".join([f"x{h:.2f}" for h in st.session_state.history]) +
-        "</div>",
-        unsafe_allow_html=True
-    )
+    hist_html = "<div class='history'>"
+    for h in st.session_state.history:
+        if h < 2:
+            cls = "low"
+        elif h < 10:
+            cls = "mid"
+        else:
+            cls = "high"
+        hist_html += f"<span class='{cls}'>x{h:.2f}</span>"
+    hist_html += "</div>"
+    st.markdown(hist_html, unsafe_allow_html=True)
 else:
-    st.caption("Пока пусто")
+    st.caption("Нет данных")
+
+st.markdown("</div>", unsafe_allow_html=True)
 
 # ---------------- RULES ----------------
-with st.expander("📘 Правила"):
+with st.expander("📘 Как в настоящем казино"):
     st.markdown("""
-- Множитель растёт от **x1.00 до x100.00**
-- Взрыв происходит **в абсолютно случайный момент**
-- Можно забрать прибыль **в любой момент**
-- Не успел — ставка сгорает
+- Множитель растёт **экспоненциально**
+- Взрыв вычисляется **до начала раунда**
+- Можно забрать в любой момент
+- Все деньги **виртуальные**
 """)
