@@ -1,221 +1,187 @@
 import streamlit as st
 import random
 import time
-from datetime import datetime
 
-# =========================================================
-# CONFIG
-# =========================================================
+# ----------------------------
+# НАСТРОЙКИ СТРАНИЦЫ
+# ----------------------------
 st.set_page_config(
-    page_title="🚀 Crash Simulator",
-    page_icon="🚀",
-    layout="wide"
+    page_title="🎲 Dice Casino",
+    page_icon="🎲",
+    layout="centered"
 )
 
-# =========================================================
-# CSS
-# =========================================================
+# ----------------------------
+# СТИЛИ
+# ----------------------------
 st.markdown("""
 <style>
 body {
-    background: radial-gradient(circle at bottom, #050014 0%, #090979 45%, #000000 100%);
+    background: radial-gradient(circle at top, #0b1d2b, #000000);
+    color: white;
 }
-.panel {
-    background: rgba(0,0,0,0.55);
-    padding: 16px;
+.block {
+    background: rgba(255,255,255,0.05);
+    padding: 20px;
     border-radius: 16px;
     box-shadow: 0 0 25px rgba(0,255,255,0.15);
-    margin-bottom: 12px;
+    margin-bottom: 20px;
 }
-.rocket {
-    font-size: 80px;
-    animation: fly 0.5s infinite alternate;
-}
-@keyframes fly {
-    from { transform: translateY(6px); }
-    to { transform: translateY(-6px); }
-}
-.mult {
-    font-size: 64px;
-    font-weight: 800;
-    color: #00ffd5;
-}
-.profit {
-    font-size: 24px;
-    color: #00ff7f;
-}
-.bonus {
-    border: 2px solid #ffb703;
-    padding: 10px;
-    border-radius: 12px;
-    background: linear-gradient(135deg, #ff006e, #ffbe0b);
-    color: black;
-    font-weight: 800;
-    animation: pulse 1.2s infinite;
-}
-@keyframes pulse {
-    0% { box-shadow: 0 0 5px #ffbe0b; }
-    50% { box-shadow: 0 0 25px #ffbe0b; }
-    100% { box-shadow: 0 0 5px #ffbe0b; }
-}
-.history span {
-    padding: 4px 8px;
-    border-radius: 8px;
-    margin-right: 6px;
+.big {
+    font-size: 28px;
     font-weight: bold;
 }
-.low { background: #2b2b2b; color: #aaa; }
-.mid { background: #1f4fff; color: white; }
-.high { background: #ff2d55; color: white; }
+.center {
+    text-align: center;
+}
+.history {
+    letter-spacing: 3px;
+    font-size: 18px;
+}
 </style>
 """, unsafe_allow_html=True)
 
-# =========================================================
-# SESSION STATE
-# =========================================================
+# ----------------------------
+# СОСТОЯНИЯ
+# ----------------------------
 if "balance" not in st.session_state:
-    st.session_state.balance = 50_000
-
-if "bet" not in st.session_state:
-    st.session_state.bet = 0
-
-if "mult" not in st.session_state:
-    st.session_state.mult = 1.00
-
-if "crash_at" not in st.session_state:
-    st.session_state.crash_at = 1.00
-
-if "in_round" not in st.session_state:
-    st.session_state.in_round = False
-
-if "round_id" not in st.session_state:
-    st.session_state.round_id = 0
+    st.session_state.balance = 10_000
 
 if "history" not in st.session_state:
     st.session_state.history = []
 
-if "fake_players" not in st.session_state:
-    st.session_state.fake_players = []
+# ----------------------------
+# КОЭФФИЦИЕНТЫ
+# ----------------------------
+MORE_COEFS = {
+    3: 1.05,
+    5: 1.25,
+    7: 1.8,
+    9: 3.2,
+    10: 4.8,
+    11: 15.0
+}
 
-if "big_wins" not in st.session_state:
-    st.session_state.big_wins = []
+EXACT_COEFS = {
+    2: 36,
+    3: 18,
+    4: 12,
+    5: 8,
+    6: 6,
+    7: 5,
+    8: 6,
+    9: 8,
+    10: 12,
+    11: 18,
+    12: 36
+}
 
-# =========================================================
-# HELPERS
-# =========================================================
-def generate_crash_point():
-    r = random.random()
-    return round(min(100.0, max(1.0, 1 / (1 - r))), 2)
+# ----------------------------
+# ЗАГОЛОВОК
+# ----------------------------
+st.markdown("<h1 class='center'>🎲 DICE CASINO</h1>", unsafe_allow_html=True)
+st.markdown("<p class='center'>Виртуальная симуляция казино</p>", unsafe_allow_html=True)
 
-def generate_fake_players():
-    names = ["Alex", "Neo", "Vortex", "Max", "Shadow", "Nova", "Zero", "Flux"]
-    players = []
-    for _ in range(random.randint(6, 12)):
-        players.append({
-            "name": random.choice(names),
-            "bet": random.randint(50, 5000),
-            "cashout": round(random.uniform(1.1, random.uniform(2, 30)), 2)
-        })
-    return players
+# ----------------------------
+# БАЛАНС
+# ----------------------------
+st.markdown(f"""
+<div class="block center big">
+💰 Баланс: {st.session_state.balance:,} $
+</div>
+""", unsafe_allow_html=True)
 
-def add_big_win():
-    mult = round(random.uniform(300, 900), 2)
-    win = random.randint(100_000, 500_000)
-    st.session_state.big_wins.insert(
-        0,
-        f"+{win}$ ×{mult}"
-    )
-    st.session_state.big_wins = st.session_state.big_wins[:8]
+# ----------------------------
+# ФОРМА СТАВКИ
+# ----------------------------
+with st.form("bet_form"):
+    st.markdown("### 🎯 Сделай ставку")
 
-# =========================================================
-# HEADER
-# =========================================================
-st.markdown("<h1 style='text-align:center;'>🚀 CRASH SIMULATOR</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align:center; opacity:0.7;'>Continuous Virtual Rounds</p>", unsafe_allow_html=True)
-
-# =========================================================
-# LAYOUT
-# =========================================================
-left, center, right = st.columns([2,4,2])
-
-# =========================================================
-# LEFT — PLAYER PANEL
-# =========================================================
-with left:
-    st.markdown("<div class='panel'>", unsafe_allow_html=True)
-    st.markdown(f"💰 **Баланс:** {st.session_state.balance}$")
-
-    bet = st.number_input(
-        "Ставка",
-        min_value=50,
+    bet_amount = st.number_input(
+        "Сумма ставки",
+        min_value=100,
         max_value=st.session_state.balance,
-        step=50
+        step=100
     )
 
-    if st.button("🚀 ВОЙТИ В РАУНД"):
-        if not st.session_state.in_round:
-            st.session_state.bet = bet
-            st.session_state.balance -= bet
+    bet_type = st.selectbox(
+        "Тип ставки",
+        ["Больше", "Меньше", "Точно"]
+    )
 
-    st.markdown("</div>", unsafe_allow_html=True)
+    if bet_type in ["Больше", "Меньше"]:
+        value = st.selectbox("Выбери значение", list(MORE_COEFS.keys()))
+        coef = MORE_COEFS[value]
+    else:
+        value = st.selectbox("Выбери сумму", list(EXACT_COEFS.keys()))
+        coef = EXACT_COEFS[value]
 
-    st.markdown("<div class='panel bonus'>", unsafe_allow_html=True)
-    st.markdown("🎁 МЕГА БОНУС<br>150 ФРИ СПИНОВ<br>ТОЛЬКО СЕГОДНЯ", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown(f"**Коэффициент:** x{coef}")
 
-# =========================================================
-# CENTER — GAME
-# =========================================================
-with center:
-    st.markdown("<div class='panel'>", unsafe_allow_html=True)
+    submit = st.form_submit_button("🎲 БРОСИТЬ КОСТИ")
 
-    if not st.session_state.in_round:
-        st.session_state.in_round = True
-        st.session_state.round_id += 1
-        st.session_state.mult = 1.00
-        st.session_state.crash_at = generate_crash_point()
-        st.session_state.fake_players = generate_fake_players()
+# ----------------------------
+# ЛОГИКА ИГРЫ
+# ----------------------------
+if submit:
+    if bet_amount > st.session_state.balance:
+        st.error("Недостаточно средств")
+    else:
+        st.session_state.balance -= bet_amount
 
-    profit = int(st.session_state.bet * st.session_state.mult)
+        with st.spinner("🎲 Кости летят..."):
+            progress = st.progress(0)
+            for i in range(100):
+                time.sleep(0.01)
+                progress.progress(i + 1)
 
-    st.markdown("<div class='rocket'>🚀</div>", unsafe_allow_html=True)
-    st.markdown(f"<div class='mult'>x{st.session_state.mult:.2f}</div>", unsafe_allow_html=True)
-    st.markdown(f"<div class='profit'>Профит: {profit}$</div>", unsafe_allow_html=True)
+        dice1 = random.randint(1, 6)
+        dice2 = random.randint(1, 6)
+        total = dice1 + dice2
 
-    if st.button("🟢 ЗАБРАТЬ"):
-        win = int(st.session_state.bet * st.session_state.mult)
-        st.session_state.balance += win
-        st.session_state.bet = 0
+        win = False
 
-    st.markdown("</div>", unsafe_allow_html=True)
+        if bet_type == "Больше":
+            win = total > value
+        elif bet_type == "Меньше":
+            win = total < value
+        else:
+            win = total == value
 
-# =========================================================
-# RIGHT — TABLES
-# =========================================================
-with right:
-    st.markdown("<div class='panel'><b>👥 Игроки в раунде</b><br>", unsafe_allow_html=True)
-    for p in st.session_state.fake_players:
-        st.markdown(f"{p['name']} — {p['bet']}$", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown(f"""
+        <div class="block center">
+        🎲 Выпало: <span class="big">{dice1} + {dice2} = {total}</span>
+        </div>
+        """, unsafe_allow_html=True)
 
-    st.markdown("<div class='panel'><b>🏆 Крупные выигрыши</b><br>", unsafe_allow_html=True)
-    for w in st.session_state.big_wins:
-        st.markdown(w, unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+        if win:
+            profit = int(bet_amount * coef)
+            st.session_state.balance += profit
+            st.success(f"🎉 ВЫИГРЫШ! +{profit:,} $")
+        else:
+            st.error("💥 ПРОИГРЫШ")
 
-# =========================================================
-# ROUND PROGRESSION
-# =========================================================
-time.sleep(0.35)
-st.session_state.mult *= 1.035
-st.session_state.mult = round(st.session_state.mult, 2)
+        st.session_state.history.append(total)
+        st.session_state.history = st.session_state.history[-10:]
 
-if st.session_state.mult >= st.session_state.crash_at:
-    st.session_state.history.insert(0, st.session_state.crash_at)
-    st.session_state.history = st.session_state.history[:12]
-    if random.random() < 0.35:
-        add_big_win()
-    st.session_state.in_round = False
-    st.session_state.bet = 0
+# ----------------------------
+# ИСТОРИЯ
+# ----------------------------
+if st.session_state.history:
+    st.markdown("""
+    <div class="block center">
+    <h3>📈 История бросков</h3>
+    <div class="history">
+    """ + " · ".join(map(str, st.session_state.history)) + """
+    </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-st.rerun()
+# ----------------------------
+# ПРЕДУПРЕЖДЕНИЕ
+# ----------------------------
+st.markdown("""
+<p class="center" style="opacity:0.5;">
+🎮 Это игровая симуляция. Все деньги виртуальны.
+</p>
+""", unsafe_allow_html=True)
